@@ -162,28 +162,6 @@ class ChatLinkSender:
         
         return content_frame
     
-    def create_rounded_entry(self, parent, **kwargs):
-        # Create container frame
-        container = tk.Frame(parent, bg=self.bg_color)
-        
-        # Create rounded canvas background
-        canvas = RoundedFrame(container, radius=8, bg=self.card_color, highlightthickness=0)
-        canvas.pack(fill=tk.X)
-        
-        # Create actual entry widget
-        entry = ttk.Entry(canvas, style='Rounded.TEntry', **kwargs)
-        entry_window = canvas.create_window(5, 5, anchor='nw', window=entry, 
-                                          width=kwargs.get('width', 50)*8-10, 
-                                          height=28)
-        
-        # Update entry when canvas is resized
-        def update_entry(event):
-            canvas.itemconfig(entry_window, width=event.width-10)
-        
-        canvas.bind('<Configure>', update_entry)
-        
-        return container, entry
-    
     def show_main_page(self):
         self.clear_frame()
         
@@ -218,11 +196,10 @@ class ChatLinkSender:
             ttk.Button(btn_frame, text="Continue", command=self.show_send_page, 
                       style='Accent.TButton').pack(side=tk.LEFT, padx=10, ipadx=20, ipady=5)
         else:
-            self.show_edit_page()
+            self.show_edit_page(first_time=True)
     
-    def show_edit_page(self):
+    def show_edit_page(self, first_time=False):
         self.clear_frame()
-        self.link_entries = []
         
         # Header
         header_frame = tk.Frame(self.root, bg=self.bg_color)
@@ -231,59 +208,86 @@ class ChatLinkSender:
                 font=(self.mono_font[0], 16, 'bold'), 
                 bg=self.bg_color, fg=self.text_color).pack()
         
+        # Main container
+        main_container = tk.Frame(self.root, bg=self.bg_color)
+        main_container.pack(fill=tk.BOTH, expand=True)
+        
         # Links card
-        links_card = self.create_card(self.root)
-        tk.Label(links_card, text="Enter your chat links below:", 
+        links_card = self.create_card(main_container)
+        tk.Label(links_card, text="Add links to different lines here:", 
                 font=(self.mono_font[0], 11), 
                 bg=self.card_color, fg=self.text_color).pack(anchor='w', pady=(0, 10))
         
-        entry_frame = tk.Frame(links_card, bg=self.card_color)
-        entry_frame.pack(fill=tk.X, pady=5)
+        # Text area container
+        text_container = tk.Frame(links_card, bg=self.card_color)
+        text_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        for link in self.saved_links:
-            self.add_link_entry(entry_frame, link)
+        # Create rounded text widget
+        canvas = RoundedFrame(text_container, radius=8, bg=self.card_color, highlightthickness=0)
+        canvas.pack(fill=tk.BOTH, expand=True)
         
-        if not self.saved_links:
-            self.add_link_entry(entry_frame)
+        self.links_text = tk.Text(canvas, height=15, width=50, 
+                                font=self.mono_font, wrap=tk.NONE,
+                                relief=tk.FLAT, borderwidth=0,
+                                bg=self.card_color, fg=self.text_color,
+                                insertbackground=self.text_color,
+                                highlightthickness=0)
         
-        # Add more button
-        ttk.Button(self.root, text="+ Add Another Link", 
-                  command=lambda: self.add_link_entry(entry_frame),
-                  style='Secondary.TButton').pack(pady=5, ipadx=10, ipady=3)
+        # Add placeholder text if first time
+        if first_time and not self.saved_links:
+            self.links_text.insert("1.0", "https://discord.com/channels/...\nhttps://messenger.com/...\nhttps://web.whatsapp.com/...")
+            self.links_text.tag_add("placeholder", "1.0", "end")
+            self.links_text.tag_config("placeholder", foreground="#7a7a7a")
+            
+            def on_focus_in(event):
+                if self.links_text.get("1.0", "end-1c") == "https://discord.com/channels/...\nhttps://messenger.com/...\nhttps://web.whatsapp.com/...":
+                    self.links_text.delete("1.0", "end")
+                    self.links_text.tag_remove("placeholder", "1.0", "end")
+                    self.links_text.config(fg=self.text_color)
+            
+            self.links_text.bind("<FocusIn>", on_focus_in)
         
-        # Save button
-        ttk.Button(self.root, text="Save Links", command=self.save_link_entries, 
-                  style='Accent.TButton').pack(pady=20, ipadx=30, ipady=5)
+        # If not first time, populate with saved links
+        if self.saved_links:
+            self.links_text.insert("1.0", "\n".join(self.saved_links))
+        
+        text_window = canvas.create_window(3, 3, anchor='nw', window=self.links_text)
+        
+        def update_text_window(event):
+            canvas.itemconfig(text_window, width=event.width-6, height=event.height-6)
+        
+        canvas.bind('<Configure>', update_text_window)
+        
+        # Add scrollbars
+        y_scrollbar = ttk.Scrollbar(text_container, orient=tk.VERTICAL, command=self.links_text.yview)
+        y_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.links_text.config(yscrollcommand=y_scrollbar.set)
+        
+        x_scrollbar = ttk.Scrollbar(text_container, orient=tk.HORIZONTAL, command=self.links_text.xview)
+        x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.links_text.config(xscrollcommand=x_scrollbar.set)
+        
+        # Buttons
+        btn_frame = tk.Frame(main_container, bg=self.bg_color)
+        btn_frame.pack(pady=20)
+        
+        if first_time or not self.saved_links:
+            ttk.Button(btn_frame, text="Save & Continue", command=self.save_text_links, 
+                      style='Accent.TButton').pack(side=tk.LEFT, padx=10, ipadx=20, ipady=5)
+        else:
+            ttk.Button(btn_frame, text="Save", command=self.save_text_links, 
+                      style='Accent.TButton').pack(side=tk.LEFT, padx=10, ipadx=20, ipady=5)
+            ttk.Button(btn_frame, text="Continue", command=self.show_send_page, 
+                      style='Secondary.TButton').pack(side=tk.LEFT, padx=10, ipadx=20, ipady=5)
     
-    def add_link_entry(self, frame, link=""):
-        entry_frame = tk.Frame(frame, bg=self.card_color)
-        entry_frame.pack(fill=tk.X, pady=5)
+    def save_text_links(self):
+        text_content = self.links_text.get("1.0", tk.END).strip()
+        if not text_content:
+            messagebox.showerror("Error", "Please add at least one valid link")
+            return
         
-        # Create rounded entry
-        entry_container, entry = self.create_rounded_entry(entry_frame, font=self.mono_font, width=50)
-        entry_container.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
-        entry.insert(0, link)
-        
-        remove_btn = ttk.Button(entry_frame, text="×", 
-                              command=lambda: self.remove_link_entry(entry_frame), 
-                              style='Danger.TButton', width=2)
-        remove_btn.pack(side=tk.LEFT)
-        
-        self.link_entries.append((entry_frame, entry))
-    
-    def remove_link_entry(self, frame):
-        for i, (entry_frame, entry) in enumerate(self.link_entries):
-            if entry_frame == frame:
-                entry_frame.destroy()
-                self.link_entries.pop(i)
-                break
-    
-    def save_link_entries(self):
-        new_links = []
-        for _, entry in self.link_entries:
-            link = entry.get().strip()
-            if link:
-                new_links.append(link)
+        # Split by lines and filter out empty lines
+        new_links = [line.strip() for line in text_content.split('\n') if line.strip()]
         
         if not new_links:
             messagebox.showerror("Error", "Please add at least one valid link")
@@ -367,6 +371,9 @@ class ChatLinkSender:
             self.root.iconify()
             time.sleep(1)
             
+            # Get screen dimensions for more precise clicking
+            screen_width, screen_height = pyautogui.size()
+            
             # Open a new browser window first
             webbrowser.open_new("about:blank")
             time.sleep(3)
@@ -386,39 +393,66 @@ class ChatLinkSender:
                 
                 # Special handling for different services
                 if "discord.com" in link:
-                    # Discord-specific actions
+                    # Discord-specific actions with more precise clicking
                     time.sleep(5)
-                    for _ in range(2):
-                        pyautogui.click(x=500, y=800)
-                        time.sleep(0.5)
+                    
+                    # Click more carefully in the message box area
+                    click_x = screen_width // 2
+                    click_y = screen_height - 100  # Near bottom of screen
+                    
+                    # Double click to ensure focus
+                    pyautogui.click(click_x, click_y)
+                    time.sleep(0.3)
+                    pyautogui.click(click_x, click_y)
+                    time.sleep(0.5)
+                    
+                    # Type the message
                     pyautogui.write(message)
+                    
+                    # Wait before sending
+                    time.sleep(1)
+                    pyautogui.press('enter')
+                    
+                    # Wait after sending
+                    time.sleep(3)
+                    
                 elif "messenger.com" in link or "facebook.com" in link:
                     # Messenger-specific actions
                     time.sleep(5)  # Extra wait for Messenger to load
-                    pyautogui.click(x=700, y=950)  # Adjusted coordinates for Messenger
+                    
+                    # Calculate position based on screen size
+                    click_x = screen_width // 2
+                    click_y = screen_height - 100  # Near bottom of screen
+                    
+                    pyautogui.click(click_x, click_y)
                     time.sleep(1)
                     pyautogui.hotkey('ctrl', 'v')  # Paste instead of typing
-                else:
-                    # Default behavior for other sites
-                    pyautogui.click(x=500, y=800)
-                    time.sleep(1)
-                    pyautogui.write(message)
-                
-                # Send the message
-                time.sleep(0.5)
-                pyautogui.press('enter')
-                
-                # Service-specific delays after sending
-                if "discord.com" in link:
-                    time.sleep(3)
-                elif "messenger.com" in link or "facebook.com" in link:
+                    time.sleep(0.5)
+                    pyautogui.press('enter')
                     time.sleep(2)
                 else:
+                    # Default behavior for other sites
+                    time.sleep(3)
+                    
+                    # Calculate position based on screen size
+                    click_x = screen_width // 2
+                    click_y = screen_height - 100  # Near bottom of screen
+                    
+                    pyautogui.click(click_x, click_y)
                     time.sleep(1)
+                    pyautogui.write(message)
+                    time.sleep(0.5)
+                    pyautogui.press('enter')
+                    time.sleep(1)
+                
+                # Close the tab after sending
+                time.sleep(1)  # Small delay before closing
+                pyautogui.hotkey('ctrl', 'w')
+                time.sleep(1)  # Wait for tab to close
             
             # Restore the tkinter window
             self.root.deiconify()
-            messagebox.showinfo("Success", "Message sent to all chats!")
+            messagebox.showinfo("Success", "Message sent to all chats! All tabs have been closed.")
             
         except Exception as e:
             self.root.deiconify()
