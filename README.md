@@ -18,12 +18,12 @@ Copy the chat link from your browser's address bar while signed in:
 ![Copy Link](https://i.imgur.com/7RlBrGv.png)
 
 ### Step 2: Paste Links
-Paste your chat links in Buzz (one per line):
+Open the app from "Start Menu" (Run as administrator, only do it for the 1st time) and Paste your chat links in Buzz (one per line):
 
 ![Paste Links](https://i.imgur.com/OvP8tng.png)
 
 ### Step 3: Save or Continue
-- Click "Save" (for first-time setup) or "Continue" (if you've saved before):
+- Click "Save" (for first-time setup) or "Continue" (if you've saved before, if you want to modify the links, then run it as administrator to give it permission to edit the file):
 
 ![Save or Continue](https://i.imgur.com/AMZXKot.png)
 
